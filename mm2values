@@ -11,14 +11,13 @@ if _G.TradeHelper then
     print("[TradeHelper] Старая версия уничтожена.")
 end
 
-_G.TradeHelper = { UIElements = {}, Connection = nil, isDataLoaded = false, ITEM_DATA = {}, IsSearching = false }
+_G.TradeHelper = { UIElements = {}, Connection = nil, isDataLoaded = false, ITEM_DATA = {} }
 
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local GuiService = game:GetService("GuiService")
-local UserInputService = game:GetService("UserInputService")
 
 -- ==========================================
 -- 2. ЗАГРУЗКА ДАННЫХ С ПАЙТОНА
@@ -41,267 +40,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 3. ОТДЕЛЬНОЕ ОКНО (SCREEN GUI) ДЛЯ СЕРВЕРОВ
--- ==========================================
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = Players.LocalPlayer.PlayerGui
-screenGui.ResetOnSpawn = false
-table.insert(_G.TradeHelper.UIElements, screenGui)
-
-local serverPanel = Instance.new("Frame")
-serverPanel.Parent = screenGui
-serverPanel.Size = UDim2.new(0, 220, 0, 180)
-serverPanel.Position = UDim2.new(0, 20, 0, 100)
-serverPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-serverPanel.BorderSizePixel = 0
-serverPanel.Active = true
-table.insert(_G.TradeHelper.UIElements, serverPanel)
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = serverPanel
-
-local titleBar = Instance.new("TextLabel")
-titleBar.Parent = serverPanel
-titleBar.Size = UDim2.new(1, 0, 0, 25)
-titleBar.BackgroundTransparency = 1
-titleBar.Text = "⚙️ Настройки поиска"
-titleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleBar.Font = Enum.Font.GothamBold
-titleBar.TextSize = 14
-table.insert(_G.TradeHelper.UIElements, titleBar)
-
-local dragging, dragInput, dragStart, startPos
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true; dragInput = input; dragStart = input.Position; startPos = serverPanel.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-    end
-end)
-titleBar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
-        local delta = input.Position - dragStart
-        serverPanel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
-local input = Instance.new("TextBox")
-input.Parent = serverPanel
-input.Size = UDim2.new(0.9, 0, 0, 25)
-input.Position = UDim2.new(0.05, 0, 0, 30)
-input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-input.TextColor3 = Color3.fromRGB(255, 255, 255)
-input.PlaceholderText = "ID сервера (пусто = рандом)"
-input.Font = Enum.Font.Gotham
-input.TextSize = 12
-input.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, input)
-local inputCorner = Instance.new("UICorner") inputCorner.CornerRadius = UDim.new(0, 4) inputCorner.Parent = input
-
-local btnJoin = Instance.new("TextButton")
-btnJoin.Parent = serverPanel
-btnJoin.Size = UDim2.new(0.9, 0, 0, 25)
-btnJoin.Position = UDim2.new(0.05, 0, 0, 60)
-btnJoin.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-btnJoin.TextColor3 = Color3.fromRGB(255, 255, 255)
-btnJoin.Font = Enum.Font.GothamBold
-btnJoin.TextSize = 12
-btnJoin.Text = "Перезайти по ID"
-btnJoin.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, btnJoin)
-local btnJoinCorner = Instance.new("UICorner") btnJoinCorner.CornerRadius = UDim.new(0, 4) btnJoinCorner.Parent = btnJoin
-
-local separator = Instance.new("Frame")
-separator.Parent = serverPanel
-separator.Size = UDim2.new(0.9, 0, 0, 2)
-separator.Position = UDim2.new(0.05, 0, 0, 90)
-separator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-separator.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, separator)
-
-local inputPlayers = Instance.new("TextBox")
-inputPlayers.Parent = serverPanel
-inputPlayers.Size = UDim2.new(0.4, 0, 0, 25)
-inputPlayers.Position = UDim2.new(0.05, 0, 0, 100)
-inputPlayers.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-inputPlayers.TextColor3 = Color3.fromRGB(255, 255, 255)
-inputPlayers.Text = "10"
-inputPlayers.Font = Enum.Font.Gotham
-inputPlayers.TextSize = 12
-inputPlayers.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, inputPlayers)
-local ipCorner1 = Instance.new("UICorner") ipCorner1.CornerRadius = UDim.new(0, 4) ipCorner1.Parent = inputPlayers
-
-local inputMonths = Instance.new("TextBox")
-inputMonths.Parent = serverPanel
-inputMonths.Size = UDim2.new(0.45, 0, 0, 25)
-inputMonths.Position = UDim2.new(0.5, 0, 0, 100)
-inputMonths.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-inputMonths.TextColor3 = Color3.fromRGB(255, 255, 255)
-inputMonths.Text = "6"
-inputMonths.Font = Enum.Font.Gotham
-inputMonths.TextSize = 12
-inputMonths.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, inputMonths)
-local ipCorner2 = Instance.new("UICorner") ipCorner2.CornerRadius = UDim.new(0, 4) ipCorner2.Parent = inputMonths
-
-local btnFind = Instance.new("TextButton")
-btnFind.Parent = serverPanel
-btnFind.Size = UDim2.new(0.9, 0, 0, 25)
-btnFind.Position = UDim2.new(0.05, 0, 0, 135)
-btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-btnFind.TextColor3 = Color3.fromRGB(255, 255, 255)
-btnFind.Font = Enum.Font.GothamBold
-btnFind.TextSize = 12
-btnFind.Text = "Искать сервер"
-btnFind.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, btnFind)
-local btnFindCorner = Instance.new("UICorner") btnFindCorner.CornerRadius = UDim.new(0, 4) btnFindCorner.Parent = btnFind
-
--- ==========================================
--- 4. ЛОГИКА ПЕРЕЗАХОДА И ПОИСКА (С ЗАЩИТОЙ ОТ 429)
--- ==========================================
-local function doRejoin(serverId)
-    if serverId and serverId ~= "" then
-        print("[ServerManager] Перезаход на сервер: " .. serverId)
-        pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, Players.LocalPlayer) end)
-    else
-        print("[ServerManager] Перезаход на рандомный сервер...")
-        pcall(function() TeleportService:Teleport(game.PlaceId, Players.LocalPlayer) end)
-    end
-end
-
-btnJoin.MouseButton1Click:Connect(function()
-    local serverId = input.Text:match("%w+")
-    doRejoin(serverId)
-end)
-
--- Функция для безопасного запроса профиля (с защитой от 429)
-local function getAccountAge(playerId)
-    local retries = 0
-    while retries < 3 do
-        local userRes = request({ 
-            Url = "https://users.roblox.com/v1/users/" .. playerId, 
-            Method = "GET",
-            Headers = {
-                ["User-Agent"] = "Roblox/WinInet",
-                ["Accept"] = "application/json"
-            }
-        })
-        
-        if userRes.StatusCode == 200 then
-            local userData = HttpService:JSONDecode(userRes.Body)
-            local year, month = userData.created:match("^(%d+)-(%d+)")
-            local now = os.date("*t")
-            return (now.year - tonumber(year)) * 12 + (now.month - tonumber(month))
-        elseif userRes.StatusCode == 429 then
-            print("[ServerManager] Слишком много запросов (429). Ждем 5 сек...")
-            task.wait(5)
-            retries = retries + 1
-        else
-            return -1 -- Ошибка профиля (закрыт/удален)
-        end
-    end
-    return -1
-end
-
-btnFind.MouseButton1Click:Connect(function()
-    if _G.TradeHelper.IsSearching then
-        _G.TradeHelper.IsSearching = false
-        btnFind.Text = "Искать сервер"
-        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-        return
-    end
-
-    _G.TradeHelper.IsSearching = true
-    btnFind.Text = "Поиск (Нажми чтобы стоп)"
-    btnFind.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
-    
-    task.spawn(function()
-        local targetPlayers = tonumber(inputPlayers.Text) or 10
-        local targetMonths = tonumber(inputMonths.Text) or 6
-        local cursor = nil
-        local page = 1
-        
-        while _G.TradeHelper.IsSearching do
-            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=false"
-            if cursor then
-                url = url .. "&cursor=" .. HttpService:UrlEncode(cursor)
-            end
-            
-            local success, response = pcall(function() 
-                return request({ 
-                    Url = url, 
-                    Method = "GET",
-                    Headers = { ["User-Agent"] = "Roblox/WinInet", ["Accept"] = "application/json" }
-                }) 
-            end)
-            
-            if not success or response.StatusCode ~= 200 then
-                print("[ServerManager] Ошибка API серверов. Ждем 5 сек...")
-                task.wait(5)
-                continue
-            end
-            
-            local data = HttpService:JSONDecode(response.Body)
-            
-            if not data.data or #data.data == 0 then
-                print("[ServerManager] Страницы закончились. Начинаем сначала.")
-                cursor = nil
-                page = 1
-                task.wait(2)
-                continue
-            end
-            
-            print("[ServerManager] Сканируем страницу " .. page .. " (Серверов: " .. #data.data .. ")")
-            
-            for _, server in ipairs(data.data) do
-                if not _G.TradeHelper.IsSearching then break end
-                
-                if server.playing == targetPlayers then
-                    local allOld = true
-                    local playersChecked = 0
-                    
-                    for _, player in ipairs(server.players) do
-                        local age = getAccountAge(player.id)
-                        if age == -1 or age < targetMonths then 
-                            allOld = false 
-                            break 
-                        end
-                        playersChecked = playersChecked + 1
-                        task.wait(0.3) -- Важная задержка, чтобы не получить 429!
-                    end
-                    
-                    if allOld and playersChecked == targetPlayers then
-                        print("[ServerManager] Найден идеальный сервер: " .. server.id)
-                        input.Text = server.id
-                        _G.TradeHelper.IsSearching = false
-                        btnFind.Text = "Сервер найден!"
-                        btnFind.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-                        task.wait(2)
-                        btnFind.Text = "Искать сервер"
-                        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-                        return
-                    end
-                end
-            end
-            
-            cursor = data.nextPageCursor
-            if not cursor then
-                print("[ServerManager] Достигнут конец списка серверов.")
-                cursor = nil
-                page = 1
-            else
-                page = page + 1
-            end
-            task.wait(1) -- Пауза между страницами
-        end
-    end)
-end)
-
--- ==========================================
--- 5. ИНТЕРФЕЙС ТРЕЙДА (ЦЕНЫ)
+-- 3. ИНТЕРФЕЙС ТРЕЙДА (ЦЕНЫ)
 -- ==========================================
 local function createLabel(parent, pos, color, size, textSize)
     local lbl = Instance.new("TextLabel")
@@ -324,6 +63,7 @@ local Stable, Change, Mytext = {}, {}, {}
 local NotStable, NotChange, Notmy = {}, {}, {}
 
 for i = 1, 4 do
+    -- Мой инвентарь
     local container = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i].Container
     Mytext[i] = createLabel(container, UDim2.new(0, 0, 0.4, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.3, 0), 22)
     Stable[i] = createLabel(container, UDim2.new(0, -5, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
@@ -331,6 +71,7 @@ for i = 1, 4 do
     Change[i] = createLabel(container, UDim2.new(0.5, 5, 0.7, 0), Color3.fromRGB(200, 200, 200), UDim2.new(0.5, 0, 0.2, 0), 14)
     Change[i].TextXAlignment = Enum.TextXAlignment.Left
     
+    -- Чужой инвентарь
     local nContainer = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container["NewItem" .. i].Container
     Notmy[i] = createLabel(nContainer, UDim2.new(0, 0, 0.4, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.3, 0), 22)
     NotStable[i] = createLabel(nContainer, UDim2.new(0, -5, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
@@ -339,11 +80,71 @@ for i = 1, 4 do
     NotChange[i].TextXAlignment = Enum.TextXAlignment.Left
 end
 
+-- Общая сумма
 local all = createLabel(Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade, UDim2.new(0.7, 0, 0, 0), Color3.fromRGB(255, 255, 255), UDim2.new(0.2, 0, 0.1, 0), 32)
 all.Text = "0"
 
+-- Кнопка Accept
+local button = Instance.new("TextButton")
+button.Parent = Players.LocalPlayer.PlayerGui.TradeGUI.Container
+button.Size = UDim2.new(0, 180, 0, 50)
+button.Position = UDim2.new(0, 15, 0, 15)
+button.Text = "Accept OFF"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.GothamBlack
+button.TextSize = 20
+button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+button.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, button)
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 10)
+btnCorner.Parent = button
+
+local btnGradient = Instance.new("UIGradient")
+btnGradient.Rotation = 90
+btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
+btnGradient.Parent = button
+
 -- ==========================================
--- 6. ЛОГИКА ПОДСЧЕТА ЦЕН В ТРЕЙДЕ
+-- 4. ЛОГИКА АВТО-ПРИНЯТИЯ
+-- ==========================================
+function accepttrade()
+    local RunService = game:GetService("RunService")
+    _G.TradeHelper.Connection = RunService.RenderStepped:Connect(function()
+        if button.BackgroundColor3 == Color3.fromRGB(255, 50, 50) or Players.LocalPlayer.PlayerGui.TradeGUI.Enabled ~= true or Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Cooldown.Visible == true then
+            button.Text = "Accept OFF"
+            btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
+            button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            _G.TradeHelper.Connection:Disconnect()
+        elseif button.BackgroundColor3 == Color3.fromRGB(0, 255, 127) then
+            local acceptBtn = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Confirm.ActionButton
+            local x = acceptBtn.AbsolutePosition.X + acceptBtn.AbsoluteSize.X / 2
+            local y = acceptBtn.AbsolutePosition.Y + acceptBtn.AbsoluteSize.Y * 2
+            if Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Accepted.Visible == true or Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Confirm.Visible ~= true and Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.AddItem.Visible ~= true then
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                task.wait(0.05)
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+            end
+        end
+    end)
+end
+
+button.MouseButton1Click:Connect(function()
+    if button.BackgroundColor3 == Color3.fromRGB(255, 50, 50) then
+        button.Text = "Accept ON"
+        btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 150)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 200, 100))}
+        button.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+        accepttrade()
+    else
+        button.Text = "Accept OFF"
+        btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
+        button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    end
+end)
+
+-- ==========================================
+-- 5. ЛОГИКА ПОДСЧЕТА И ВЫВОДА
 -- ==========================================
 local function getItemData(itemName)
     if not _G.TradeHelper.isDataLoaded then return 0, "...", 0 end
@@ -352,12 +153,19 @@ local function getItemData(itemName)
     return 0, "Unknown", 0
 end
 
-local function check(lbl) return lbl.Text ~= "" and lbl.Text ~= "0" and lbl.Parent.Parent.Visible == true end
+local function check(lbl)
+    return lbl.Text ~= "" and lbl.Text ~= "0" and lbl.Parent.Parent.Visible == true
+end
 
 function updateall()
     local total = 0
-    for i = 1, 4 do if check(Notmy[i]) then total = total + (tonumber(Notmy[i].Text) or 0) end end
-    for i = 1, 4 do if check(Mytext[i]) then total = total - (tonumber(Mytext[i].Text) or 0) end end
+    for i = 1, 4 do
+        if check(Notmy[i]) then total = total + (tonumber(Notmy[i].Text) or 0) end
+    end
+    for i = 1, 4 do
+        if check(Mytext[i]) then total = total - (tonumber(Mytext[i].Text) or 0) end
+    end
+
     all.Text = tostring(total)
     if total > 0 then all.TextColor3 = Color3.fromRGB(0, 255, 127)
     elseif total < 0 then all.TextColor3 = Color3.fromRGB(255, 50, 50)
@@ -372,6 +180,7 @@ end
 function updateInput()
     pcall(function()
         for i = 1, 4 do
+            -- МОИ ПРЕДМЕТЫ
             local item = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i]
             local textLabel = item.ItemName.Label
             local val, stab, chg = 0, "...", 0
@@ -395,6 +204,7 @@ function updateInput()
             elseif chg < 0 then Change[i].Text = tostring(chg) Change[i].TextColor3 = Color3.fromRGB(255, 50, 50)
             else Change[i].Text = "" end
 
+            -- ЧУЖИЕ ПРЕДМЕТЫ
             local nItem = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container["NewItem" .. i]
             local nLabel = nItem.ItemName.Label
             local nVal, nStab, nChg = 0, "...", 0
@@ -432,7 +242,7 @@ pcall(function()
 end)
 
 -- ==========================================
--- 7. АВТОПЕРЕЗАХОД
+-- 6. АВТОПЕРЕЗАХОД
 -- ==========================================
 GuiService.ErrorMessageChanged:Connect(function(msg)
     if msg and msg ~= "" then
