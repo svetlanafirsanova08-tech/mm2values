@@ -11,7 +11,7 @@ if _G.TradeHelper then
     print("[TradeHelper] Старая версия уничтожена.")
 end
 
-_G.TradeHelper = { UIElements = {}, Connection = nil, isDataLoaded = false, ITEM_DATA = {} }
+_G.TradeHelper = { UIElements = {}, Connection = nil, isDataLoaded = false, ITEM_DATA = {}, IsSearching = false }
 
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
@@ -51,17 +51,16 @@ table.insert(_G.TradeHelper.UIElements, screenGui)
 local serverPanel = Instance.new("Frame")
 serverPanel.Parent = screenGui
 serverPanel.Size = UDim2.new(0, 220, 0, 180)
-serverPanel.Position = UDim2.new(0, 20, 0, 100) -- Позиция на экране
+serverPanel.Position = UDim2.new(0, 20, 0, 100)
 serverPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 serverPanel.BorderSizePixel = 0
-serverPanel.Active = true -- Чтобы можно было перетаскивать
+serverPanel.Active = true
 table.insert(_G.TradeHelper.UIElements, serverPanel)
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = serverPanel
 
--- Заголовок (за него таскаем)
 local titleBar = Instance.new("TextLabel")
 titleBar.Parent = serverPanel
 titleBar.Size = UDim2.new(1, 0, 0, 25)
@@ -72,22 +71,15 @@ titleBar.Font = Enum.Font.GothamBold
 titleBar.TextSize = 14
 table.insert(_G.TradeHelper.UIElements, titleBar)
 
--- Логика перетаскивания окна
+-- Перетаскивание
 local dragging, dragInput, dragStart, startPos
 titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragInput = input
-        dragStart = input.Position
-        startPos = serverPanel.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
+        dragging = true; dragInput = input; dragStart = input.Position; startPos = serverPanel.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end)
-titleBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
-end)
+titleBar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and input == dragInput then
         local delta = input.Position - dragStart
@@ -95,7 +87,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Поле 1: ID сервера
+-- Поле ID
 local input = Instance.new("TextBox")
 input.Parent = serverPanel
 input.Size = UDim2.new(0.9, 0, 0, 25)
@@ -130,7 +122,6 @@ separator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
 separator.BorderSizePixel = 0
 table.insert(_G.TradeHelper.UIElements, separator)
 
--- Поля настроек
 local inputPlayers = Instance.new("TextBox")
 inputPlayers.Parent = serverPanel
 inputPlayers.Size = UDim2.new(0.4, 0, 0, 25)
@@ -171,7 +162,7 @@ table.insert(_G.TradeHelper.UIElements, btnFind)
 local btnFindCorner = Instance.new("UICorner") btnFindCorner.CornerRadius = UDim.new(0, 4) btnFindCorner.Parent = btnFind
 
 -- ==========================================
--- 4. ЛОГИКА ПЕРЕЗАХОДА И ПОИСКА
+-- 4. ЛОГИКА ПЕРЕЗАХОДА И БЕСКОНЕЧНОГО ПОИСКА
 -- ==========================================
 local function doRejoin(serverId)
     if serverId and serverId ~= "" then
@@ -189,21 +180,48 @@ btnJoin.MouseButton1Click:Connect(function()
 end)
 
 btnFind.MouseButton1Click:Connect(function()
-    local targetPlayers = tonumber(inputPlayers.Text) or 10
-    local targetMonths = tonumber(inputMonths.Text) or 6
-    
-    btnFind.Text = "Поиск..."
-    btnFind.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    if _G.TradeHelper.IsSearching then
+        _G.TradeHelper.IsSearching = false
+        btnFind.Text = "Искать сервер"
+        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+        return
+    end
+
+    _G.TradeHelper.IsSearching = true
+    btnFind.Text = "Поиск (Нажми чтобы стоп)"
+    btnFind.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
     
     task.spawn(function()
-        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=false"
-        local success, response = pcall(function() return request({ Url = url, Method = "GET" }) end)
+        local targetPlayers = tonumber(inputPlayers.Text) or 10
+        local targetMonths = tonumber(inputMonths.Text) or 6
+        local cursor = ""
+        local page = 1
         
-        if success and response.StatusCode == 200 then
+        while _G.TradeHelper.IsSearching do
+            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=false"
+            if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+            
+            local success, response = pcall(function() return request({ Url = url, Method = "GET" }) end)
+            if not success or response.StatusCode ~= 200 then
+                print("[ServerManager] Ошибка API. Ждем 5 сек...")
+                task.wait(5)
+                continue
+            end
+            
             local data = HttpService:JSONDecode(response.Body)
-            local found = false
+            if not data.data or #data.data == 0 then
+                print("[ServerManager] Страницы закончились. Начинаем сначала.")
+                cursor = ""
+                page = 1
+                task.wait(2)
+                continue
+            end
+            
+            print("[ServerManager] Сканируем страницу " .. page .. "...")
             
             for _, server in ipairs(data.data) do
+                if not _G.TradeHelper.IsSearching then break end
+                
                 if server.playing == targetPlayers then
                     local allOld = true
                     for _, player in ipairs(server.players) do
@@ -217,32 +235,27 @@ btnFind.MouseButton1Click:Connect(function()
                         else
                             allOld = false break
                         end
-                        task.wait(0.2)
+                        task.wait(0.2) -- Защита от бана API
                     end
                     
                     if allOld then
+                        print("[ServerManager] Найден идеальный сервер: " .. server.id)
                         input.Text = server.id
-                        found = true
-                        break
+                        _G.TradeHelper.IsSearching = false
+                        btnFind.Text = "Сервер найден!"
+                        btnFind.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+                        task.wait(2)
+                        btnFind.Text = "Искать сервер"
+                        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+                        return
                     end
                 end
             end
             
-            if found then
-                btnFind.Text = "Найдено!"
-                btnFind.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-            else
-                btnFind.Text = "Не найдено."
-                btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-            end
-        else
-            btnFind.Text = "Ошибка API"
-            btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            cursor = data.nextPageCursor or ""
+            page = page + 1
+            task.wait(1)
         end
-        
-        task.wait(3)
-        btnFind.Text = "Искать сервер"
-        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
     end)
 end)
 
@@ -266,12 +279,8 @@ local function createLabel(parent, pos, color, size, textSize)
     return lbl
 end
 
-local Stable = {}
-local Change = {}
-local Mytext = {}
-local NotStable = {}
-local NotChange = {}
-local Notmy = {}
+local Stable, Change, Mytext = {}, {}, {}
+local NotStable, NotChange, Notmy = {}, {}, {}
 
 for i = 1, 4 do
     local container = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i].Container
