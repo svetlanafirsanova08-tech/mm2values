@@ -1,18 +1,12 @@
 -- ==========================================
 -- 1. АВТОИНЖЕКТ И ЗАЩИТА ОТ ДВОЙНОГО ЗАПУСКА
 -- ==========================================
-if _G.TradeHelperLoaded then
-    print("[TradeHelper] Скрипт уже запущен!")
-    return
-end
+if _G.TradeHelperLoaded then return end
 _G.TradeHelperLoaded = true
 
--- ⚠️ ВСТАВЬ ССЫЛКУ НА СВОЙ СКРИПТ С GITHUB СЮДА ⚠️
--- Пример: "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/main/script.lua"
 local SCRIPT_URL = "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/refs/heads/main/mm2values"
 
--- Автозапуск при перезаходе на сервер
-if queue_on_teleport and SCRIPT_URL ~= "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/refs/heads/main/mm2values" then
+if queue_on_teleport and SCRIPT_URL ~= "ССЫЛКА_НА_ТВОЙ_СКРИПТ_С_GITHUB" then
     queue_on_teleport([[
         loadstring(game:HttpGet("]] .. SCRIPT_URL .. [["))()
     ]])
@@ -33,98 +27,95 @@ local isDataLoaded = false
 -- ==========================================
 local function loadPrices()
     local success, response = pcall(function()
-        return request({
-            Url = "http://127.0.0.1:5000/prices",
-            Method = "GET"
-        })
+        return request({ Url = "http://127.0.0.1:5000/prices", Method = "GET" })
     end)
 
     if success and response.StatusCode == 200 then
         ITEM_DATA = HttpService:JSONDecode(response.Body)
         isDataLoaded = true
-        print("[TradeHelper] Цены обновлены! Загружено: " .. tostring(#ITEM_DATA))
-    else
-        print("[TradeHelper] Ошибка: Python сервер выключен или не отвечает.")
+        print("[TradeHelper] Цены и изменения обновлены!")
     end
 end
 
 task.spawn(function()
     while true do
         loadPrices()
-        task.wait(60) -- Обновляем цены раз в минуту
+        task.wait(60)
     end
 end)
 
 -- ==========================================
--- 3. КРАСИВОЕ СОЗДАНИЕ UI
+-- 3. КРАСИВОЕ СОЗДАНИЕ UI (КОМПАКТНОЕ)
 -- ==========================================
 local function createLabel(parent, pos, color, size, textSize)
     local lbl = Instance.new("TextLabel")
     lbl.Parent = parent
-    lbl.Text = "..."
+    lbl.Text = ""
     lbl.Size = size
     lbl.Position = pos
     lbl.ZIndex = 999
     lbl.BackgroundTransparency = 1
     lbl.TextColor3 = color
-    lbl.Font = Enum.Font.GothamBlack
-    lbl.TextSize = textSize or 24
-    lbl.TextStrokeTransparency = 0.5 -- Тень для читаемости
+    lbl.Font = Enum.Font.GothamBold -- Жирный, но не слишком широкий
+    lbl.TextSize = textSize or 20
+    lbl.TextStrokeTransparency = 0.6 -- Легкая тень для читаемости
     lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    lbl.TextXAlignment = Enum.TextXAlignment.Center
     return lbl
 end
 
 local Stable = {}
+local Change = {}
 local Mytext = {}
 local NotStable = {}
+local NotChange = {}
 local Notmy = {}
 
 for i = 1, 4 do
     -- Мой инвентарь
     local container = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i].Container
-    Stable[i] = createLabel(container, UDim2.new(0, 0, 0.65, 0), Color3.fromRGB(255, 215, 0), UDim2.new(1, 0, 0.3, 0), 18) -- Золотой
-    Mytext[i] = createLabel(container, UDim2.new(0, 0, 0.35, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.4, 0), 28) -- Зеленый (Spring Green)
+    -- Цена (по центру, чуть ниже середины)
+    Mytext[i] = createLabel(container, UDim2.new(0, 0, 0.4, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.3, 0), 22)
+    -- Стабильность (слева внизу)
+    Stable[i] = createLabel(container, UDim2.new(0, 0, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
+    Stable[i].TextXAlignment = Enum.TextXAlignment.Right
+    Stable[i].Position = UDim2.new(0, -5, 0.7, 0) -- Сдвиг влево, чтобы не прилипало к центру
+    -- Изменение (справа внизу)
+    Change[i] = createLabel(container, UDim2.new(0.5, 5, 0.7, 0), Color3.fromRGB(200, 200, 200), UDim2.new(0.5, 0, 0.2, 0), 14)
+    Change[i].TextXAlignment = Enum.TextXAlignment.Left
     
     -- Чужой инвентарь
     local nContainer = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container["NewItem" .. i].Container
-    NotStable[i] = createLabel(nContainer, UDim2.new(0, 0, 0.65, 0), Color3.fromRGB(255, 215, 0), UDim2.new(1, 0, 0.3, 0), 18)
-    Notmy[i] = createLabel(nContainer, UDim2.new(0, 0, 0.35, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.4, 0), 28)
+    Notmy[i] = createLabel(nContainer, UDim2.new(0, 0, 0.4, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.3, 0), 22)
+    NotStable[i] = createLabel(nContainer, UDim2.new(0, -5, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
+    NotStable[i].TextXAlignment = Enum.TextXAlignment.Right
+    NotChange[i] = createLabel(nContainer, UDim2.new(0.5, 5, 0.7, 0), Color3.fromRGB(200, 200, 200), UDim2.new(0.5, 0, 0.2, 0), 14)
+    NotChange[i].TextXAlignment = Enum.TextXAlignment.Left
 end
 
--- Общая сумма
-local all = createLabel(Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade, UDim2.new(0.7, 0, 0, 0), Color3.fromRGB(255, 255, 255), UDim2.new(0.2, 0, 0.1, 0), 36)
+-- Общая сумма (в правом верхнем углу трейда)
+local all = createLabel(Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade, UDim2.new(0.7, 0, 0, 0), Color3.fromRGB(255, 255, 255), UDim2.new(0.2, 0, 0.1, 0), 32)
 all.Text = "0"
-all.TextStrokeTransparency = 0.2
 
--- Кнопка Accept (Стилизованная)
+-- Кнопка Accept
 local button = Instance.new("TextButton")
 button.Parent = Players.LocalPlayer.PlayerGui.TradeGUI.Container
-button.Size = UDim2.new(0, 220, 0, 60)
+button.Size = UDim2.new(0, 180, 0, 50) -- Чуть меньше, чтобы не закрывать
 button.Position = UDim2.new(0, 15, 0, 15)
 button.Text = "Accept OFF"
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
 button.Font = Enum.Font.GothamBlack
-button.TextSize = 22
-button.BackgroundColor3 = Color3.fromRGB(255, 50, 50) -- Красный по умолчанию
+button.TextSize = 20
+button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 button.BorderSizePixel = 0
 
--- Красивая тень и закругления для кнопки
 local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 12)
+btnCorner.CornerRadius = UDim.new(0, 10)
 btnCorner.Parent = button
-
-local btnStroke = Instance.new("UIStroke")
-btnStroke.Color = Color3.fromRGB(0, 0, 0)
-btnStroke.Thickness = 2
-btnStroke.Transparency = 0.5
-btnStroke.Parent = button
 
 local btnGradient = Instance.new("UIGradient")
 btnGradient.Rotation = 90
-btnGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))
-}
+btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
 btnGradient.Parent = button
 
 -- ==========================================
@@ -165,19 +156,19 @@ button.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- 5. ЛОГИКА ПОДСЧЕТА
+-- 5. ЛОГИКА ПОДСЧЕТА И ВЫВОДА
 -- ==========================================
 local function getItemData(itemName)
-    if not isDataLoaded then return 0, "..." end
+    if not isDataLoaded then return 0, "...", 0 end
     local data = ITEM_DATA[itemName]
     if data then
-        return data.value or 0, data.stability or "Unknown"
+        return data.value or 0, data.stability or "Unknown", data.change or 0
     end
-    return 0, "Unknown"
+    return 0, "Unknown", 0
 end
 
 local function check(lbl)
-    return lbl.Text ~= "..." and lbl.Parent.Parent.Visible == true
+    return lbl.Text ~= "" and lbl.Text ~= "0" and lbl.Parent.Parent.Visible == true
 end
 
 function updateall()
@@ -190,13 +181,9 @@ function updateall()
     end
 
     all.Text = tostring(total)
-    if total > 0 then
-        all.TextColor3 = Color3.fromRGB(0, 255, 127) -- Зеленый профит
-    elseif total < 0 then
-        all.TextColor3 = Color3.fromRGB(255, 50, 50) -- Красный убыток
-    else
-        all.TextColor3 = Color3.fromRGB(255, 255, 255) -- Белый
-    end
+    if total > 0 then all.TextColor3 = Color3.fromRGB(0, 255, 127)
+    elseif total < 0 then all.TextColor3 = Color3.fromRGB(255, 50, 50)
+    else all.TextColor3 = Color3.fromRGB(255, 255, 255) end
 end
 
 local function getAmount(amountObj)
@@ -210,44 +197,64 @@ function updateInput()
             -- МОИ ПРЕДМЕТЫ
             local item = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i]
             local textLabel = item.ItemName.Label
-            local val, stab = 0, "..."
+            local val, stab, chg = 0, "...", 0
             
             if textLabel.Text ~= "" then
                 if item:FindFirstChild("Tags") and item.Tags:FindFirstChild("Chroma") and item.Tags.Chroma.Visible then
-                    val, stab = getItemData("Chroma " .. textLabel.Text)
+                    val, stab, chg = getItemData("Chroma " .. textLabel.Text)
                 else
                     local bg = item.ItemName.BackgroundColor3
-                    if bg == Color3.fromRGB(255, 0, 179) then val, stab = getItemData(textLabel.Text .. " Godly")
-                    elseif bg == Color3.fromRGB(220, 0, 5) then val, stab = getItemData(textLabel.Text .. " Legendary")
-                    elseif bg == Color3.fromRGB(100, 10, 255) then val, stab = getItemData(textLabel.Text .. " Ancient")
-                    elseif bg == Color3.fromRGB(230, 200, 0) then val, stab = getItemData(textLabel.Text .. " Vintage")
-                    else val, stab = getItemData(textLabel.Text .. " Unique") end
+                    if bg == Color3.fromRGB(255, 0, 179) then val, stab, chg = getItemData(textLabel.Text .. " Godly")
+                    elseif bg == Color3.fromRGB(220, 0, 5) then val, stab, chg = getItemData(textLabel.Text .. " Legendary")
+                    elseif bg == Color3.fromRGB(100, 10, 255) then val, stab, chg = getItemData(textLabel.Text .. " Ancient")
+                    elseif bg == Color3.fromRGB(230, 200, 0) then val, stab, chg = getItemData(textLabel.Text .. " Vintage")
+                    else val, stab, chg = getItemData(textLabel.Text .. " Unique") end
                 end
             end
             
             Mytext[i].Text = tostring(val * getAmount(item.Container.Amount))
             Stable[i].Text = stab
+            
+            if chg > 0 then
+                Change[i].Text = string.format("+%.1f%%", chg)
+                Change[i].TextColor3 = Color3.fromRGB(0, 255, 0)
+            elseif chg < 0 then
+                Change[i].Text = string.format("%.1f%%", chg)
+                Change[i].TextColor3 = Color3.fromRGB(255, 50, 50)
+            else
+                Change[i].Text = ""
+            end
 
             -- ЧУЖИЕ ПРЕДМЕТЫ
             local nItem = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container["NewItem" .. i]
             local nLabel = nItem.ItemName.Label
-            local nVal, nStab = 0, "..."
+            local nVal, nStab, nChg = 0, "...", 0
             
             if nLabel.Text ~= "" then
                 if nItem:FindFirstChild("Tags") and nItem.Tags:FindFirstChild("Chroma") and nItem.Tags.Chroma.Visible then
-                    nVal, nStab = getItemData("Chroma " .. nLabel.Text)
+                    nVal, nStab, nChg = getItemData("Chroma " .. nLabel.Text)
                 else
                     local bg = nItem.ItemName.BackgroundColor3
-                    if bg == Color3.fromRGB(255, 0, 179) then nVal, nStab = getItemData(nLabel.Text .. " Godly")
-                    elseif bg == Color3.fromRGB(220, 0, 5) then nVal, nStab = getItemData(nLabel.Text .. " Legendary")
-                    elseif bg == Color3.fromRGB(100, 10, 255) then nVal, nStab = getItemData(nLabel.Text .. " Ancient")
-                    elseif bg == Color3.fromRGB(230, 200, 0) then nVal, nStab = getItemData(nLabel.Text .. " Vintage")
-                    else nVal, nStab = getItemData(nLabel.Text .. " Unique") end
+                    if bg == Color3.fromRGB(255, 0, 179) then nVal, nStab, nChg = getItemData(nLabel.Text .. " Godly")
+                    elseif bg == Color3.fromRGB(220, 0, 5) then nVal, nStab, nChg = getItemData(nLabel.Text .. " Legendary")
+                    elseif bg == Color3.fromRGB(100, 10, 255) then nVal, nStab, nChg = getItemData(nLabel.Text .. " Ancient")
+                    elseif bg == Color3.fromRGB(230, 200, 0) then nVal, nStab, nChg = getItemData(nLabel.Text .. " Vintage")
+                    else nVal, nStab, nChg = getItemData(nLabel.Text .. " Unique") end
                 end
             end
             
             Notmy[i].Text = tostring(nVal * getAmount(nItem.Container.Amount))
             NotStable[i].Text = nStab
+            
+            if nChg > 0 then
+                NotChange[i].Text = string.format("+%.1f%%", nChg)
+                NotChange[i].TextColor3 = Color3.fromRGB(0, 255, 0)
+            elseif nChg < 0 then
+                NotChange[i].Text = string.format("%.1f%%", nChg)
+                NotChange[i].TextColor3 = Color3.fromRGB(255, 50, 50)
+            else
+                NotChange[i].Text = ""
+            end
         end
     end)
 end
@@ -263,19 +270,11 @@ pcall(function()
 end)
 
 -- ==========================================
--- 6. АВТОПЕРЕЗАХОД (Костыль от вылетов)
+-- 6. АВТОПЕРЕЗАХОД
 -- ==========================================
--- Отслеживаем ошибки (Disconnect) и перезаходим
 GuiService.ErrorMessageChanged:Connect(function(msg)
     if msg and msg ~= "" then
-        task.wait(2) -- Ждем 2 сек и перезаходим
+        task.wait(2)
         TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
-    end
-end)
-
--- Отслеживаем, если игрока кикнуло на главный экран (лобби)
-Players.LocalPlayer.OnTeleport:Connect(function(State)
-    if State == Enum.TeleportState.Started then
-        print("[AutoRejoin] Телепортация... Скрипт перезапустится.")
     end
 end)
