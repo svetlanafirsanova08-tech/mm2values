@@ -160,7 +160,7 @@ table.insert(_G.TradeHelper.UIElements, btnFind)
 local btnFindCorner = Instance.new("UICorner") btnFindCorner.CornerRadius = UDim.new(0, 4) btnFindCorner.Parent = btnFind
 
 -- ==========================================
--- 4. ЛОГИКА ПЕРЕЗАХОДА И БЕСКОНЕЧНОГО ПОИСКА
+-- 4. ЛОГИКА ПЕРЕЗАХОДА И ПОИСКА (С ЗАЩИТОЙ ОТ 429)
 -- ==========================================
 local function doRejoin(serverId)
     if serverId and serverId ~= "" then
@@ -176,6 +176,35 @@ btnJoin.MouseButton1Click:Connect(function()
     local serverId = input.Text:match("%w+")
     doRejoin(serverId)
 end)
+
+-- Функция для безопасного запроса профиля (с защитой от 429)
+local function getAccountAge(playerId)
+    local retries = 0
+    while retries < 3 do
+        local userRes = request({ 
+            Url = "https://users.roblox.com/v1/users/" .. playerId, 
+            Method = "GET",
+            Headers = {
+                ["User-Agent"] = "Roblox/WinInet",
+                ["Accept"] = "application/json"
+            }
+        })
+        
+        if userRes.StatusCode == 200 then
+            local userData = HttpService:JSONDecode(userRes.Body)
+            local year, month = userData.created:match("^(%d+)-(%d+)")
+            local now = os.date("*t")
+            return (now.year - tonumber(year)) * 12 + (now.month - tonumber(month))
+        elseif userRes.StatusCode == 429 then
+            print("[ServerManager] Слишком много запросов (429). Ждем 5 сек...")
+            task.wait(5)
+            retries = retries + 1
+        else
+            return -1 -- Ошибка профиля (закрыт/удален)
+        end
+    end
+    return -1
+end
 
 btnFind.MouseButton1Click:Connect(function()
     if _G.TradeHelper.IsSearching then
@@ -197,7 +226,6 @@ btnFind.MouseButton1Click:Connect(function()
         
         while _G.TradeHelper.IsSearching do
             local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=false"
-            
             if cursor then
                 url = url .. "&cursor=" .. HttpService:UrlEncode(cursor)
             end
@@ -206,33 +234,17 @@ btnFind.MouseButton1Click:Connect(function()
                 return request({ 
                     Url = url, 
                     Method = "GET",
-                    Headers = {
-                        ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                        ["Accept"] = "application/json"
-                    }
+                    Headers = { ["User-Agent"] = "Roblox/WinInet", ["Accept"] = "application/json" }
                 }) 
             end)
             
-            if not success then
-                print("[ServerManager] Критическая ошибка сети: " .. tostring(response))
+            if not success or response.StatusCode ~= 200 then
+                print("[ServerManager] Ошибка API серверов. Ждем 5 сек...")
                 task.wait(5)
                 continue
             end
             
-            if response.StatusCode ~= 200 then
-                print("[ServerManager] Ошибка API: " .. tostring(response.StatusCode) .. ". Ждем 5 сек...")
-                task.wait(5)
-                continue
-            end
-            
-            local data
-            local jsonSuccess, jsonResult = pcall(function() return HttpService:JSONDecode(response.Body) end)
-            if not jsonSuccess then
-                print("[ServerManager] Ошибка чтения JSON.")
-                task.wait(5)
-                continue
-            end
-            data = jsonResult
+            local data = HttpService:JSONDecode(response.Body)
             
             if not data.data or #data.data == 0 then
                 print("[ServerManager] Страницы закончились. Начинаем сначала.")
@@ -252,31 +264,13 @@ btnFind.MouseButton1Click:Connect(function()
                     local playersChecked = 0
                     
                     for _, player in ipairs(server.players) do
-                        local userRes = request({ 
-                            Url = "https://users.roblox.com/v1/users/" .. player.id, 
-                            Method = "GET",
-                            Headers = {
-                                ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                                ["Accept"] = "application/json"
-                            }
-                        })
-                        
-                        if userRes.StatusCode == 200 then
-                            local userData = HttpService:JSONDecode(userRes.Body)
-                            local year, month = userData.created:match("^(%d+)-(%d+)")
-                            local now = os.date("*t")
-                            local age = (now.year - tonumber(year)) * 12 + (now.month - tonumber(month))
-                            
-                            if age < targetMonths then 
-                                allOld = false 
-                                break 
-                            end
-                            playersChecked = playersChecked + 1
-                        else
+                        local age = getAccountAge(player.id)
+                        if age == -1 or age < targetMonths then 
                             allOld = false 
-                            break
+                            break 
                         end
-                        task.wait(0.1)
+                        playersChecked = playersChecked + 1
+                        task.wait(0.3) -- Важная задержка, чтобы не получить 429!
                     end
                     
                     if allOld and playersChecked == targetPlayers then
@@ -301,7 +295,7 @@ btnFind.MouseButton1Click:Connect(function()
             else
                 page = page + 1
             end
-            task.wait(1)
+            task.wait(1) -- Пауза между страницами
         end
     end)
 end)
