@@ -9,10 +9,10 @@ _G.TradeHelperLoaded = true
 
 -- ⚠️ ВСТАВЬ ССЫЛКУ НА СВОЙ СКРИПТ С GITHUB СЮДА ⚠️
 -- Пример: "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/main/script.lua"
-local SCRIPT_URL = "ССЫЛКА_НА_ТВОЙ_СКРИПТ_С_GITHUB"
+local SCRIPT_URL = "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/refs/heads/main/mm2values"
 
 -- Автозапуск при перезаходе на сервер
-if queue_on_teleport and SCRIPT_URL ~= "ССЫЛКА_НА_ТВОЙ_СКРИПТ_С_GITHUB" then
+if queue_on_teleport and SCRIPT_URL ~= "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/refs/heads/main/mm2values" then
     queue_on_teleport([[
         loadstring(game:HttpGet("]] .. SCRIPT_URL .. [["))()
     ]])
