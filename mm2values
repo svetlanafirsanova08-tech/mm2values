@@ -18,6 +18,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 
 -- ==========================================
 -- 2. ЗАГРУЗКА ДАННЫХ С ПАЙТОНА
@@ -40,7 +41,213 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 3. СОЗДАНИЕ UI (ЦЕНЫ)
+-- 3. ОТДЕЛЬНОЕ ОКНО (SCREEN GUI) ДЛЯ СЕРВЕРОВ
+-- ==========================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = Players.LocalPlayer.PlayerGui
+screenGui.ResetOnSpawn = false
+table.insert(_G.TradeHelper.UIElements, screenGui)
+
+local serverPanel = Instance.new("Frame")
+serverPanel.Parent = screenGui
+serverPanel.Size = UDim2.new(0, 220, 0, 180)
+serverPanel.Position = UDim2.new(0, 20, 0, 100) -- Позиция на экране
+serverPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+serverPanel.BorderSizePixel = 0
+serverPanel.Active = true -- Чтобы можно было перетаскивать
+table.insert(_G.TradeHelper.UIElements, serverPanel)
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = serverPanel
+
+-- Заголовок (за него таскаем)
+local titleBar = Instance.new("TextLabel")
+titleBar.Parent = serverPanel
+titleBar.Size = UDim2.new(1, 0, 0, 25)
+titleBar.BackgroundTransparency = 1
+titleBar.Text = "⚙️ Настройки поиска"
+titleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleBar.Font = Enum.Font.GothamBold
+titleBar.TextSize = 14
+table.insert(_G.TradeHelper.UIElements, titleBar)
+
+-- Логика перетаскивания окна
+local dragging, dragInput, dragStart, startPos
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragInput = input
+        dragStart = input.Position
+        startPos = serverPanel.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+        serverPanel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Поле 1: ID сервера
+local input = Instance.new("TextBox")
+input.Parent = serverPanel
+input.Size = UDim2.new(0.9, 0, 0, 25)
+input.Position = UDim2.new(0.05, 0, 0, 30)
+input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+input.TextColor3 = Color3.fromRGB(255, 255, 255)
+input.PlaceholderText = "ID сервера (пусто = рандом)"
+input.Font = Enum.Font.Gotham
+input.TextSize = 12
+input.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, input)
+local inputCorner = Instance.new("UICorner") inputCorner.CornerRadius = UDim.new(0, 4) inputCorner.Parent = input
+
+local btnJoin = Instance.new("TextButton")
+btnJoin.Parent = serverPanel
+btnJoin.Size = UDim2.new(0.9, 0, 0, 25)
+btnJoin.Position = UDim2.new(0.05, 0, 0, 60)
+btnJoin.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+btnJoin.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnJoin.Font = Enum.Font.GothamBold
+btnJoin.TextSize = 12
+btnJoin.Text = "Перезайти по ID"
+btnJoin.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, btnJoin)
+local btnJoinCorner = Instance.new("UICorner") btnJoinCorner.CornerRadius = UDim.new(0, 4) btnJoinCorner.Parent = btnJoin
+
+local separator = Instance.new("Frame")
+separator.Parent = serverPanel
+separator.Size = UDim2.new(0.9, 0, 0, 2)
+separator.Position = UDim2.new(0.05, 0, 0, 90)
+separator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+separator.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, separator)
+
+-- Поля настроек
+local inputPlayers = Instance.new("TextBox")
+inputPlayers.Parent = serverPanel
+inputPlayers.Size = UDim2.new(0.4, 0, 0, 25)
+inputPlayers.Position = UDim2.new(0.05, 0, 0, 100)
+inputPlayers.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+inputPlayers.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputPlayers.Text = "10"
+inputPlayers.Font = Enum.Font.Gotham
+inputPlayers.TextSize = 12
+inputPlayers.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, inputPlayers)
+local ipCorner1 = Instance.new("UICorner") ipCorner1.CornerRadius = UDim.new(0, 4) ipCorner1.Parent = inputPlayers
+
+local inputMonths = Instance.new("TextBox")
+inputMonths.Parent = serverPanel
+inputMonths.Size = UDim2.new(0.45, 0, 0, 25)
+inputMonths.Position = UDim2.new(0.5, 0, 0, 100)
+inputMonths.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+inputMonths.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputMonths.Text = "6"
+inputMonths.Font = Enum.Font.Gotham
+inputMonths.TextSize = 12
+inputMonths.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, inputMonths)
+local ipCorner2 = Instance.new("UICorner") ipCorner2.CornerRadius = UDim.new(0, 4) ipCorner2.Parent = inputMonths
+
+local btnFind = Instance.new("TextButton")
+btnFind.Parent = serverPanel
+btnFind.Size = UDim2.new(0.9, 0, 0, 25)
+btnFind.Position = UDim2.new(0.05, 0, 0, 135)
+btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+btnFind.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnFind.Font = Enum.Font.GothamBold
+btnFind.TextSize = 12
+btnFind.Text = "Искать сервер"
+btnFind.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, btnFind)
+local btnFindCorner = Instance.new("UICorner") btnFindCorner.CornerRadius = UDim.new(0, 4) btnFindCorner.Parent = btnFind
+
+-- ==========================================
+-- 4. ЛОГИКА ПЕРЕЗАХОДА И ПОИСКА
+-- ==========================================
+local function doRejoin(serverId)
+    if serverId and serverId ~= "" then
+        print("[ServerManager] Перезаход на сервер: " .. serverId)
+        pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, Players.LocalPlayer) end)
+    else
+        print("[ServerManager] Перезаход на рандомный сервер...")
+        pcall(function() TeleportService:Teleport(game.PlaceId, Players.LocalPlayer) end)
+    end
+end
+
+btnJoin.MouseButton1Click:Connect(function()
+    local serverId = input.Text:match("%w+")
+    doRejoin(serverId)
+end)
+
+btnFind.MouseButton1Click:Connect(function()
+    local targetPlayers = tonumber(inputPlayers.Text) or 10
+    local targetMonths = tonumber(inputMonths.Text) or 6
+    
+    btnFind.Text = "Поиск..."
+    btnFind.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    
+    task.spawn(function()
+        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=false"
+        local success, response = pcall(function() return request({ Url = url, Method = "GET" }) end)
+        
+        if success and response.StatusCode == 200 then
+            local data = HttpService:JSONDecode(response.Body)
+            local found = false
+            
+            for _, server in ipairs(data.data) do
+                if server.playing == targetPlayers then
+                    local allOld = true
+                    for _, player in ipairs(server.players) do
+                        local userRes = request({ Url = "https://users.roblox.com/v1/users/" .. player.id, Method = "GET" })
+                        if userRes.StatusCode == 200 then
+                            local userData = HttpService:JSONDecode(userRes.Body)
+                            local year, month = userData.created:match("^(%d+)-(%d+)")
+                            local now = os.date("*t")
+                            local age = (now.year - tonumber(year)) * 12 + (now.month - tonumber(month))
+                            if age < targetMonths then allOld = false break end
+                        else
+                            allOld = false break
+                        end
+                        task.wait(0.2)
+                    end
+                    
+                    if allOld then
+                        input.Text = server.id
+                        found = true
+                        break
+                    end
+                end
+            end
+            
+            if found then
+                btnFind.Text = "Найдено!"
+                btnFind.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+            else
+                btnFind.Text = "Не найдено."
+                btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            end
+        else
+            btnFind.Text = "Ошибка API"
+            btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        end
+        
+        task.wait(3)
+        btnFind.Text = "Искать сервер"
+        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+    end)
+end)
+
+-- ==========================================
+-- 5. ИНТЕРФЕЙС ТРЕЙДА (ЦЕНЫ)
 -- ==========================================
 local function createLabel(parent, pos, color, size, textSize)
     local lbl = Instance.new("TextLabel")
@@ -86,201 +293,7 @@ local all = createLabel(Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade, 
 all.Text = "0"
 
 -- ==========================================
--- 4. ПАНЕЛЬ УПРАВЛЕНИЯ (НАСТРОЙКИ)
--- ==========================================
-local serverPanel = Instance.new("Frame")
-serverPanel.Parent = Players.LocalPlayer.PlayerGui.TradeGUI.Container
-serverPanel.Size = UDim2.new(0, 220, 0, 180) -- Увеличили высоту
-serverPanel.Position = UDim2.new(0, 15, 0, 15)
-serverPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-serverPanel.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, serverPanel)
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = serverPanel
-
-local title = Instance.new("TextLabel")
-title.Parent = serverPanel
-title.Size = UDim2.new(1, 0, 0, 20)
-title.Position = UDim2.new(0, 0, 0, 5)
-title.BackgroundTransparency = 1
-title.Text = "Настройки поиска"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 14
-table.insert(_G.TradeHelper.UIElements, title)
-
--- Поле 1: ID сервера / Рандом
-local input = Instance.new("TextBox")
-input.Parent = serverPanel
-input.Size = UDim2.new(0.9, 0, 0, 25)
-input.Position = UDim2.new(0.05, 0, 0, 30)
-input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-input.TextColor3 = Color3.fromRGB(255, 255, 255)
-input.PlaceholderText = "ID сервера (пусто = рандом)"
-input.Font = Enum.Font.Gotham
-input.TextSize = 12
-input.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, input)
-
-local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 4)
-inputCorner.Parent = input
-
-local btnJoin = Instance.new("TextButton")
-btnJoin.Parent = serverPanel
-btnJoin.Size = UDim2.new(0.9, 0, 0, 25)
-btnJoin.Position = UDim2.new(0.05, 0, 0, 60)
-btnJoin.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-btnJoin.TextColor3 = Color3.fromRGB(255, 255, 255)
-btnJoin.Font = Enum.Font.GothamBold
-btnJoin.TextSize = 12
-btnJoin.Text = "Перезайти по ID"
-btnJoin.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, btnJoin)
-
-local btnJoinCorner = Instance.new("UICorner")
-btnJoinCorner.CornerRadius = UDim.new(0, 4)
-btnJoinCorner.Parent = btnJoin
-
--- Разделитель
-local separator = Instance.new("Frame")
-separator.Parent = serverPanel
-separator.Size = UDim2.new(0.9, 0, 0, 2)
-separator.Position = UDim2.new(0.05, 0, 0, 90)
-separator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-separator.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, separator)
-
--- Поля для поиска: Игроки и Месяцы
-local inputPlayers = Instance.new("TextBox")
-inputPlayers.Parent = serverPanel
-inputPlayers.Size = UDim2.new(0.4, 0, 0, 25)
-inputPlayers.Position = UDim2.new(0.05, 0, 0, 100)
-inputPlayers.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-inputPlayers.TextColor3 = Color3.fromRGB(255, 255, 255)
-inputPlayers.Text = "10"
-inputPlayers.PlaceholderText = "Игроки"
-inputPlayers.Font = Enum.Font.Gotham
-inputPlayers.TextSize = 12
-inputPlayers.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, inputPlayers)
-local ipCorner1 = Instance.new("UICorner") ipCorner1.CornerRadius = UDim.new(0, 4) ipCorner1.Parent = inputPlayers
-
-local inputMonths = Instance.new("TextBox")
-inputMonths.Parent = serverPanel
-inputMonths.Size = UDim2.new(0.45, 0, 0, 25)
-inputMonths.Position = UDim2.new(0.5, 0, 0, 100)
-inputMonths.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-inputMonths.TextColor3 = Color3.fromRGB(255, 255, 255)
-inputMonths.Text = "6"
-inputMonths.PlaceholderText = "Мес. стаж"
-inputMonths.Font = Enum.Font.Gotham
-inputMonths.TextSize = 12
-inputMonths.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, inputMonths)
-local ipCorner2 = Instance.new("UICorner") ipCorner2.CornerRadius = UDim.new(0, 4) ipCorner2.Parent = inputMonths
-
-local btnFind = Instance.new("TextButton")
-btnFind.Parent = serverPanel
-btnFind.Size = UDim2.new(0.9, 0, 0, 25)
-btnFind.Position = UDim2.new(0.05, 0, 0, 135)
-btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-btnFind.TextColor3 = Color3.fromRGB(255, 255, 255)
-btnFind.Font = Enum.Font.GothamBold
-btnFind.TextSize = 12
-btnFind.Text = "Искать сервер по параметрам"
-btnFind.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, btnFind)
-
-local btnFindCorner = Instance.new("UICorner")
-btnFindCorner.CornerRadius = UDim.new(0, 4)
-btnFindCorner.Parent = btnFind
-
--- ==========================================
--- 5. ЛОГИКА ПЕРЕЗАХОДА И ПОИСКА
--- ==========================================
-local function doRejoin(serverId)
-    if serverId and serverId ~= "" then
-        print("[ServerManager] Перезаход на сервер: " .. serverId)
-        pcall(function()
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, Players.LocalPlayer)
-        end)
-    else
-        print("[ServerManager] Перезаход на рандомный сервер...")
-        pcall(function()
-            TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
-        end)
-    end
-end
-
-btnJoin.MouseButton1Click:Connect(function()
-    local serverId = input.Text:match("%w+")
-    doRejoin(serverId)
-end)
-
-btnFind.MouseButton1Click:Connect(function()
-    local targetPlayers = tonumber(inputPlayers.Text) or 10
-    local targetMonths = tonumber(inputMonths.Text) or 6
-    
-    btnFind.Text = "Поиск " .. targetPlayers .. " игроков (>" .. targetMonths .. " мес)..."
-    btnFind.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    
-    task.spawn(function()
-        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=false"
-        local success, response = pcall(function() return request({ Url = url, Method = "GET" }) end)
-        
-        if success and response.StatusCode == 200 then
-            local data = HttpService:JSONDecode(response.Body)
-            local found = false
-            
-            for _, server in ipairs(data.data) do
-                if server.playing == targetPlayers then
-                    local allOld = true
-                    for _, player in ipairs(server.players) do
-                        local userRes = request({ Url = "https://users.roblox.com/v1/users/" .. player.id, Method = "GET" })
-                        if userRes.StatusCode == 200 then
-                            local userData = HttpService:JSONDecode(userRes.Body)
-                            local year, month = userData.created:match("^(%d+)-(%d+)")
-                            local now = os.date("*t")
-                            local age = (now.year - tonumber(year)) * 12 + (now.month - tonumber(month))
-                            if age < targetMonths then allOld = false break end
-                        else
-                            allOld = false break
-                        end
-                        task.wait(0.2)
-                    end
-                    
-                    if allOld then
-                        print("[ServerManager] Найден сервер: " .. server.id)
-                        input.Text = server.id
-                        found = true
-                        break
-                    end
-                end
-            end
-            
-            if found then
-                btnFind.Text = "Сервер найден! ID в поле."
-                btnFind.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-            else
-                btnFind.Text = "Не найдено. Пробуй еще."
-                btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-            end
-        else
-            btnFind.Text = "Ошибка API"
-            btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-        end
-        
-        task.wait(3)
-        btnFind.Text = "Искать сервер по параметрам"
-        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-    end)
-end)
-
--- ==========================================
--- 6. ЛОГИКА ТРЕЙДА (ЦЕНЫ)
+-- 6. ЛОГИКА ПОДСЧЕТА ЦЕН В ТРЕЙДЕ
 -- ==========================================
 local function getItemData(itemName)
     if not _G.TradeHelper.isDataLoaded then return 0, "...", 0 end
@@ -365,5 +378,15 @@ pcall(function()
             updateInput()
             updateall()
         end
+    end
+end)
+
+-- ==========================================
+-- 7. АВТОПЕРЕЗАХОД
+-- ==========================================
+GuiService.ErrorMessageChanged:Connect(function(msg)
+    if msg and msg ~= "" then
+        task.wait(2)
+        TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
     end
 end)
