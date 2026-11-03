@@ -1,37 +1,17 @@
 -- ==========================================
--- 1. ОЧИСТКА СТАРОГО СКРИПТА (Защита от спама)
+-- 1. ОЧИСТКА СТАРОГО СКРИПТА
 -- ==========================================
 if _G.TradeHelper then
     if _G.TradeHelper.UIElements then
         for _, obj in pairs(_G.TradeHelper.UIElements) do
-            if obj and obj.Parent then
-                obj:Destroy()
-            end
+            if obj and obj.Parent then obj:Destroy() end
         end
     end
-    if _G.TradeHelper.Connection then
-        _G.TradeHelper.Connection:Disconnect()
-    end
-    print("[TradeHelper] Старая версия скрипта уничтожена.")
+    if _G.TradeHelper.Connection then _G.TradeHelper.Connection:Disconnect() end
+    print("[TradeHelper] Старая версия уничтожена.")
 end
 
-_G.TradeHelper = {
-    UIElements = {},
-    Connection = nil,
-    isDataLoaded = false,
-    ITEM_DATA = {}
-}
-
--- ==========================================
--- 2. АВТОИНЖЕКТ
--- ==========================================
-local SCRIPT_URL = "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/refs/heads/main/mm2values"
-
-if queue_on_teleport and SCRIPT_URL ~= "ССЫЛКА_НА_ТВОЙ_СКРИПТ_С_GITHUB" then
-    queue_on_teleport([[
-        loadstring(game:HttpGet("]] .. SCRIPT_URL .. [["))()
-    ]])
-end
+_G.TradeHelper = { UIElements = {}, Connection = nil, isDataLoaded = false, ITEM_DATA = {} }
 
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
@@ -40,29 +20,27 @@ local TeleportService = game:GetService("TeleportService")
 local GuiService = game:GetService("GuiService")
 
 -- ==========================================
--- 3. ЗАГРУЗКА ДАННЫХ С ПАЙТОНА
+-- 2. ЗАГРУЗКА ДАННЫХ С ПАЙТОНА
 -- ==========================================
 local function loadPrices()
     local success, response = pcall(function()
         return request({ Url = "http://127.0.0.1:5000/prices", Method = "GET" })
     end)
-
     if success and response.StatusCode == 200 then
         _G.TradeHelper.ITEM_DATA = HttpService:JSONDecode(response.Body)
         _G.TradeHelper.isDataLoaded = true
-        print("[TradeHelper] Данные обновлены!")
     end
 end
 
 task.spawn(function()
     while true do
         loadPrices()
-        task.wait(60) -- Раз в минуту
+        task.wait(60)
     end
 end)
 
 -- ==========================================
--- 4. КОМПАКТНОЕ СОЗДАНИЕ UI
+-- 3. СОЗДАНИЕ UI (ЦЕНЫ)
 -- ==========================================
 local function createLabel(parent, pos, color, size, textSize)
     local lbl = Instance.new("TextLabel")
@@ -76,7 +54,6 @@ local function createLabel(parent, pos, color, size, textSize)
     lbl.Font = Enum.Font.GothamBold
     lbl.TextSize = textSize or 20
     lbl.TextStrokeTransparency = 0.6
-    lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     lbl.TextXAlignment = Enum.TextXAlignment.Center
     table.insert(_G.TradeHelper.UIElements, lbl)
     return lbl
@@ -90,7 +67,6 @@ local NotChange = {}
 local Notmy = {}
 
 for i = 1, 4 do
-    -- Мой инвентарь
     local container = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i].Container
     Mytext[i] = createLabel(container, UDim2.new(0, 0, 0.4, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.3, 0), 22)
     Stable[i] = createLabel(container, UDim2.new(0, -5, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
@@ -98,7 +74,6 @@ for i = 1, 4 do
     Change[i] = createLabel(container, UDim2.new(0.5, 5, 0.7, 0), Color3.fromRGB(200, 200, 200), UDim2.new(0.5, 0, 0.2, 0), 14)
     Change[i].TextXAlignment = Enum.TextXAlignment.Left
     
-    -- Чужой инвентарь
     local nContainer = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container["NewItem" .. i].Container
     Notmy[i] = createLabel(nContainer, UDim2.new(0, 0, 0.4, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.3, 0), 22)
     NotStable[i] = createLabel(nContainer, UDim2.new(0, -5, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
@@ -107,94 +82,219 @@ for i = 1, 4 do
     NotChange[i].TextXAlignment = Enum.TextXAlignment.Left
 end
 
--- Общая сумма
 local all = createLabel(Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade, UDim2.new(0.7, 0, 0, 0), Color3.fromRGB(255, 255, 255), UDim2.new(0.2, 0, 0.1, 0), 32)
 all.Text = "0"
 
--- Кнопка Accept
-local button = Instance.new("TextButton")
-button.Parent = Players.LocalPlayer.PlayerGui.TradeGUI.Container
-button.Size = UDim2.new(0, 180, 0, 50)
-button.Position = UDim2.new(0, 15, 0, 15)
-button.Text = "Accept OFF"
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Font = Enum.Font.GothamBlack
-button.TextSize = 20
-button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-button.BorderSizePixel = 0
-table.insert(_G.TradeHelper.UIElements, button)
+-- ==========================================
+-- 4. ПАНЕЛЬ УПРАВЛЕНИЯ (НАСТРОЙКИ)
+-- ==========================================
+local serverPanel = Instance.new("Frame")
+serverPanel.Parent = Players.LocalPlayer.PlayerGui.TradeGUI.Container
+serverPanel.Size = UDim2.new(0, 220, 0, 180) -- Увеличили высоту
+serverPanel.Position = UDim2.new(0, 15, 0, 15)
+serverPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+serverPanel.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, serverPanel)
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 10)
-btnCorner.Parent = button
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = serverPanel
 
-local btnGradient = Instance.new("UIGradient")
-btnGradient.Rotation = 90
-btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
-btnGradient.Parent = button
+local title = Instance.new("TextLabel")
+title.Parent = serverPanel
+title.Size = UDim2.new(1, 0, 0, 20)
+title.Position = UDim2.new(0, 0, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "Настройки поиска"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+table.insert(_G.TradeHelper.UIElements, title)
+
+-- Поле 1: ID сервера / Рандом
+local input = Instance.new("TextBox")
+input.Parent = serverPanel
+input.Size = UDim2.new(0.9, 0, 0, 25)
+input.Position = UDim2.new(0.05, 0, 0, 30)
+input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+input.TextColor3 = Color3.fromRGB(255, 255, 255)
+input.PlaceholderText = "ID сервера (пусто = рандом)"
+input.Font = Enum.Font.Gotham
+input.TextSize = 12
+input.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, input)
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 4)
+inputCorner.Parent = input
+
+local btnJoin = Instance.new("TextButton")
+btnJoin.Parent = serverPanel
+btnJoin.Size = UDim2.new(0.9, 0, 0, 25)
+btnJoin.Position = UDim2.new(0.05, 0, 0, 60)
+btnJoin.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+btnJoin.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnJoin.Font = Enum.Font.GothamBold
+btnJoin.TextSize = 12
+btnJoin.Text = "Перезайти по ID"
+btnJoin.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, btnJoin)
+
+local btnJoinCorner = Instance.new("UICorner")
+btnJoinCorner.CornerRadius = UDim.new(0, 4)
+btnJoinCorner.Parent = btnJoin
+
+-- Разделитель
+local separator = Instance.new("Frame")
+separator.Parent = serverPanel
+separator.Size = UDim2.new(0.9, 0, 0, 2)
+separator.Position = UDim2.new(0.05, 0, 0, 90)
+separator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+separator.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, separator)
+
+-- Поля для поиска: Игроки и Месяцы
+local inputPlayers = Instance.new("TextBox")
+inputPlayers.Parent = serverPanel
+inputPlayers.Size = UDim2.new(0.4, 0, 0, 25)
+inputPlayers.Position = UDim2.new(0.05, 0, 0, 100)
+inputPlayers.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+inputPlayers.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputPlayers.Text = "10"
+inputPlayers.PlaceholderText = "Игроки"
+inputPlayers.Font = Enum.Font.Gotham
+inputPlayers.TextSize = 12
+inputPlayers.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, inputPlayers)
+local ipCorner1 = Instance.new("UICorner") ipCorner1.CornerRadius = UDim.new(0, 4) ipCorner1.Parent = inputPlayers
+
+local inputMonths = Instance.new("TextBox")
+inputMonths.Parent = serverPanel
+inputMonths.Size = UDim2.new(0.45, 0, 0, 25)
+inputMonths.Position = UDim2.new(0.5, 0, 0, 100)
+inputMonths.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+inputMonths.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputMonths.Text = "6"
+inputMonths.PlaceholderText = "Мес. стаж"
+inputMonths.Font = Enum.Font.Gotham
+inputMonths.TextSize = 12
+inputMonths.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, inputMonths)
+local ipCorner2 = Instance.new("UICorner") ipCorner2.CornerRadius = UDim.new(0, 4) ipCorner2.Parent = inputMonths
+
+local btnFind = Instance.new("TextButton")
+btnFind.Parent = serverPanel
+btnFind.Size = UDim2.new(0.9, 0, 0, 25)
+btnFind.Position = UDim2.new(0.05, 0, 0, 135)
+btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+btnFind.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnFind.Font = Enum.Font.GothamBold
+btnFind.TextSize = 12
+btnFind.Text = "Искать сервер по параметрам"
+btnFind.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, btnFind)
+
+local btnFindCorner = Instance.new("UICorner")
+btnFindCorner.CornerRadius = UDim.new(0, 4)
+btnFindCorner.Parent = btnFind
 
 -- ==========================================
--- 5. ЛОГИКА АВТО-ПРИНЯТИЯ
+-- 5. ЛОГИКА ПЕРЕЗАХОДА И ПОИСКА
 -- ==========================================
-function accepttrade()
-    local RunService = game:GetService("RunService")
-    _G.TradeHelper.Connection = RunService.RenderStepped:Connect(function()
-        if button.BackgroundColor3 == Color3.fromRGB(255, 50, 50) or Players.LocalPlayer.PlayerGui.TradeGUI.Enabled ~= true or Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Cooldown.Visible == true then
-            button.Text = "Accept OFF"
-            btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
-            button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-            _G.TradeHelper.Connection:Disconnect()
-        elseif button.BackgroundColor3 == Color3.fromRGB(0, 255, 127) then
-            local acceptBtn = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Confirm.ActionButton
-            local x = acceptBtn.AbsolutePosition.X + acceptBtn.AbsoluteSize.X / 2
-            local y = acceptBtn.AbsolutePosition.Y + acceptBtn.AbsoluteSize.Y * 2
-            if Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Accepted.Visible == true or Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Confirm.Visible ~= true and Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.AddItem.Visible ~= true then
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
-            end
-        end
-    end)
+local function doRejoin(serverId)
+    if serverId and serverId ~= "" then
+        print("[ServerManager] Перезаход на сервер: " .. serverId)
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, Players.LocalPlayer)
+        end)
+    else
+        print("[ServerManager] Перезаход на рандомный сервер...")
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+        end)
+    end
 end
 
-button.MouseButton1Click:Connect(function()
-    if button.BackgroundColor3 == Color3.fromRGB(255, 50, 50) then
-        button.Text = "Accept ON"
-        btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 150)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 200, 100))}
-        button.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
-        accepttrade()
-    else
-        button.Text = "Accept OFF"
-        btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
-        button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-    end
+btnJoin.MouseButton1Click:Connect(function()
+    local serverId = input.Text:match("%w+")
+    doRejoin(serverId)
+end)
+
+btnFind.MouseButton1Click:Connect(function()
+    local targetPlayers = tonumber(inputPlayers.Text) or 10
+    local targetMonths = tonumber(inputMonths.Text) or 6
+    
+    btnFind.Text = "Поиск " .. targetPlayers .. " игроков (>" .. targetMonths .. " мес)..."
+    btnFind.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    
+    task.spawn(function()
+        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=false"
+        local success, response = pcall(function() return request({ Url = url, Method = "GET" }) end)
+        
+        if success and response.StatusCode == 200 then
+            local data = HttpService:JSONDecode(response.Body)
+            local found = false
+            
+            for _, server in ipairs(data.data) do
+                if server.playing == targetPlayers then
+                    local allOld = true
+                    for _, player in ipairs(server.players) do
+                        local userRes = request({ Url = "https://users.roblox.com/v1/users/" .. player.id, Method = "GET" })
+                        if userRes.StatusCode == 200 then
+                            local userData = HttpService:JSONDecode(userRes.Body)
+                            local year, month = userData.created:match("^(%d+)-(%d+)")
+                            local now = os.date("*t")
+                            local age = (now.year - tonumber(year)) * 12 + (now.month - tonumber(month))
+                            if age < targetMonths then allOld = false break end
+                        else
+                            allOld = false break
+                        end
+                        task.wait(0.2)
+                    end
+                    
+                    if allOld then
+                        print("[ServerManager] Найден сервер: " .. server.id)
+                        input.Text = server.id
+                        found = true
+                        break
+                    end
+                end
+            end
+            
+            if found then
+                btnFind.Text = "Сервер найден! ID в поле."
+                btnFind.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+            else
+                btnFind.Text = "Не найдено. Пробуй еще."
+                btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            end
+        else
+            btnFind.Text = "Ошибка API"
+            btnFind.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        end
+        
+        task.wait(3)
+        btnFind.Text = "Искать сервер по параметрам"
+        btnFind.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+    end)
 end)
 
 -- ==========================================
--- 6. ЛОГИКА ПОДСЧЕТА И ВЫВОДА
+-- 6. ЛОГИКА ТРЕЙДА (ЦЕНЫ)
 -- ==========================================
 local function getItemData(itemName)
     if not _G.TradeHelper.isDataLoaded then return 0, "...", 0 end
     local data = _G.TradeHelper.ITEM_DATA[itemName]
-    if data then
-        return data.value or 0, data.stability or "Unknown", data.change or 0
-    end
+    if data then return data.value or 0, data.stability or "Unknown", data.change or 0 end
     return 0, "Unknown", 0
 end
 
-local function check(lbl)
-    return lbl.Text ~= "" and lbl.Text ~= "0" and lbl.Parent.Parent.Visible == true
-end
+local function check(lbl) return lbl.Text ~= "" and lbl.Text ~= "0" and lbl.Parent.Parent.Visible == true end
 
 function updateall()
     local total = 0
-    for i = 1, 4 do
-        if check(Notmy[i]) then total = total + (tonumber(Notmy[i].Text) or 0) end
-    end
-    for i = 1, 4 do
-        if check(Mytext[i]) then total = total - (tonumber(Mytext[i].Text) or 0) end
-    end
-
+    for i = 1, 4 do if check(Notmy[i]) then total = total + (tonumber(Notmy[i].Text) or 0) end end
+    for i = 1, 4 do if check(Mytext[i]) then total = total - (tonumber(Mytext[i].Text) or 0) end end
     all.Text = tostring(total)
     if total > 0 then all.TextColor3 = Color3.fromRGB(0, 255, 127)
     elseif total < 0 then all.TextColor3 = Color3.fromRGB(255, 50, 50)
@@ -209,7 +309,6 @@ end
 function updateInput()
     pcall(function()
         for i = 1, 4 do
-            -- МОИ ПРЕДМЕТЫ
             local item = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i]
             local textLabel = item.ItemName.Label
             local val, stab, chg = 0, "...", 0
@@ -229,19 +328,10 @@ function updateInput()
             
             Mytext[i].Text = tostring(val * getAmount(item.Container.Amount))
             Stable[i].Text = stab
-            
-            -- Вывод изменения цены (в валюте)
-            if chg > 0 then
-                Change[i].Text = string.format("+%d", chg)
-                Change[i].TextColor3 = Color3.fromRGB(0, 255, 0)
-            elseif chg < 0 then
-                Change[i].Text = tostring(chg)
-                Change[i].TextColor3 = Color3.fromRGB(255, 50, 50)
-            else
-                Change[i].Text = ""
-            end
+            if chg > 0 then Change[i].Text = string.format("+%d", chg) Change[i].TextColor3 = Color3.fromRGB(0, 255, 0)
+            elseif chg < 0 then Change[i].Text = tostring(chg) Change[i].TextColor3 = Color3.fromRGB(255, 50, 50)
+            else Change[i].Text = "" end
 
-            -- ЧУЖИЕ ПРЕДМЕТЫ
             local nItem = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container["NewItem" .. i]
             local nLabel = nItem.ItemName.Label
             local nVal, nStab, nChg = 0, "...", 0
@@ -261,17 +351,9 @@ function updateInput()
             
             Notmy[i].Text = tostring(nVal * getAmount(nItem.Container.Amount))
             NotStable[i].Text = nStab
-            
-            -- Вывод изменения цены (в валюте)
-            if nChg > 0 then
-                NotChange[i].Text = string.format("+%d", nChg)
-                NotChange[i].TextColor3 = Color3.fromRGB(0, 255, 0)
-            elseif nChg < 0 then
-                NotChange[i].Text = tostring(nChg)
-                NotChange[i].TextColor3 = Color3.fromRGB(255, 50, 50)
-            else
-                NotChange[i].Text = ""
-            end
+            if nChg > 0 then NotChange[i].Text = string.format("+%d", nChg) NotChange[i].TextColor3 = Color3.fromRGB(0, 255, 0)
+            elseif nChg < 0 then NotChange[i].Text = tostring(nChg) NotChange[i].TextColor3 = Color3.fromRGB(255, 50, 50)
+            else NotChange[i].Text = "" end
         end
     end)
 end
@@ -283,15 +365,5 @@ pcall(function()
             updateInput()
             updateall()
         end
-    end
-end)
-
--- ==========================================
--- 7. АВТОПЕРЕЗАХОД
--- ==========================================
-GuiService.ErrorMessageChanged:Connect(function(msg)
-    if msg and msg ~= "" then
-        task.wait(2)
-        TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
     end
 end)
