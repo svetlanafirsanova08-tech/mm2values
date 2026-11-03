@@ -1,9 +1,30 @@
 -- ==========================================
--- 1. АВТОИНЖЕКТ И ЗАЩИТА ОТ ДВОЙНОГО ЗАПУСКА
+-- 1. ОЧИСТКА СТАРОГО СКРИПТА (Защита от спама)
 -- ==========================================
-if _G.TradeHelperLoaded then return end
-_G.TradeHelperLoaded = true
+if _G.TradeHelper then
+    if _G.TradeHelper.UIElements then
+        for _, obj in pairs(_G.TradeHelper.UIElements) do
+            if obj and obj.Parent then
+                obj:Destroy()
+            end
+        end
+    end
+    if _G.TradeHelper.Connection then
+        _G.TradeHelper.Connection:Disconnect()
+    end
+    print("[TradeHelper] Старая версия скрипта уничтожена.")
+end
 
+_G.TradeHelper = {
+    UIElements = {},
+    Connection = nil,
+    isDataLoaded = false,
+    ITEM_DATA = {}
+}
+
+-- ==========================================
+-- 2. АВТОИНЖЕКТ
+-- ==========================================
 local SCRIPT_URL = "https://raw.githubusercontent.com/svetlanafirsanova08-tech/mm2values/refs/heads/main/mm2values"
 
 if queue_on_teleport and SCRIPT_URL ~= "ССЫЛКА_НА_ТВОЙ_СКРИПТ_С_GITHUB" then
@@ -18,12 +39,8 @@ local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local GuiService = game:GetService("GuiService")
 
-local connection = nil
-local ITEM_DATA = {} 
-local isDataLoaded = false
-
 -- ==========================================
--- 2. ЗАГРУЗКА ЦЕН С ЛОКАЛЬНОГО СЕРВЕРА (РАЗ В МИНУТУ)
+-- 3. ЗАГРУЗКА ДАННЫХ С ПАЙТОНА
 -- ==========================================
 local function loadPrices()
     local success, response = pcall(function()
@@ -31,21 +48,21 @@ local function loadPrices()
     end)
 
     if success and response.StatusCode == 200 then
-        ITEM_DATA = HttpService:JSONDecode(response.Body)
-        isDataLoaded = true
-        print("[TradeHelper] Цены и изменения обновлены!")
+        _G.TradeHelper.ITEM_DATA = HttpService:JSONDecode(response.Body)
+        _G.TradeHelper.isDataLoaded = true
+        print("[TradeHelper] Данные обновлены!")
     end
 end
 
 task.spawn(function()
     while true do
         loadPrices()
-        task.wait(60)
+        task.wait(60) -- Раз в минуту
     end
 end)
 
 -- ==========================================
--- 3. КРАСИВОЕ СОЗДАНИЕ UI (КОМПАКТНОЕ)
+-- 4. КОМПАКТНОЕ СОЗДАНИЕ UI
 -- ==========================================
 local function createLabel(parent, pos, color, size, textSize)
     local lbl = Instance.new("TextLabel")
@@ -56,11 +73,12 @@ local function createLabel(parent, pos, color, size, textSize)
     lbl.ZIndex = 999
     lbl.BackgroundTransparency = 1
     lbl.TextColor3 = color
-    lbl.Font = Enum.Font.GothamBold -- Жирный, но не слишком широкий
+    lbl.Font = Enum.Font.GothamBold
     lbl.TextSize = textSize or 20
-    lbl.TextStrokeTransparency = 0.6 -- Легкая тень для читаемости
+    lbl.TextStrokeTransparency = 0.6
     lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     lbl.TextXAlignment = Enum.TextXAlignment.Center
+    table.insert(_G.TradeHelper.UIElements, lbl)
     return lbl
 end
 
@@ -74,13 +92,9 @@ local Notmy = {}
 for i = 1, 4 do
     -- Мой инвентарь
     local container = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.YourOffer.Container["NewItem" .. i].Container
-    -- Цена (по центру, чуть ниже середины)
     Mytext[i] = createLabel(container, UDim2.new(0, 0, 0.4, 0), Color3.fromRGB(0, 255, 127), UDim2.new(1, 0, 0.3, 0), 22)
-    -- Стабильность (слева внизу)
-    Stable[i] = createLabel(container, UDim2.new(0, 0, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
+    Stable[i] = createLabel(container, UDim2.new(0, -5, 0.7, 0), Color3.fromRGB(255, 215, 0), UDim2.new(0.5, 0, 0.2, 0), 14)
     Stable[i].TextXAlignment = Enum.TextXAlignment.Right
-    Stable[i].Position = UDim2.new(0, -5, 0.7, 0) -- Сдвиг влево, чтобы не прилипало к центру
-    -- Изменение (справа внизу)
     Change[i] = createLabel(container, UDim2.new(0.5, 5, 0.7, 0), Color3.fromRGB(200, 200, 200), UDim2.new(0.5, 0, 0.2, 0), 14)
     Change[i].TextXAlignment = Enum.TextXAlignment.Left
     
@@ -93,14 +107,14 @@ for i = 1, 4 do
     NotChange[i].TextXAlignment = Enum.TextXAlignment.Left
 end
 
--- Общая сумма (в правом верхнем углу трейда)
+-- Общая сумма
 local all = createLabel(Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade, UDim2.new(0.7, 0, 0, 0), Color3.fromRGB(255, 255, 255), UDim2.new(0.2, 0, 0.1, 0), 32)
 all.Text = "0"
 
 -- Кнопка Accept
 local button = Instance.new("TextButton")
 button.Parent = Players.LocalPlayer.PlayerGui.TradeGUI.Container
-button.Size = UDim2.new(0, 180, 0, 50) -- Чуть меньше, чтобы не закрывать
+button.Size = UDim2.new(0, 180, 0, 50)
 button.Position = UDim2.new(0, 15, 0, 15)
 button.Text = "Accept OFF"
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -108,6 +122,7 @@ button.Font = Enum.Font.GothamBlack
 button.TextSize = 20
 button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 button.BorderSizePixel = 0
+table.insert(_G.TradeHelper.UIElements, button)
 
 local btnCorner = Instance.new("UICorner")
 btnCorner.CornerRadius = UDim.new(0, 10)
@@ -119,16 +134,16 @@ btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRG
 btnGradient.Parent = button
 
 -- ==========================================
--- 4. ЛОГИКА АВТО-ПРИНЯТИЯ
+-- 5. ЛОГИКА АВТО-ПРИНЯТИЯ
 -- ==========================================
 function accepttrade()
     local RunService = game:GetService("RunService")
-    connection = RunService.RenderStepped:Connect(function()
+    _G.TradeHelper.Connection = RunService.RenderStepped:Connect(function()
         if button.BackgroundColor3 == Color3.fromRGB(255, 50, 50) or Players.LocalPlayer.PlayerGui.TradeGUI.Enabled ~= true or Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Cooldown.Visible == true then
             button.Text = "Accept OFF"
             btnGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))}
             button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-            connection:Disconnect()
+            _G.TradeHelper.Connection:Disconnect()
         elseif button.BackgroundColor3 == Color3.fromRGB(0, 255, 127) then
             local acceptBtn = Players.LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Actions.Accept.Confirm.ActionButton
             local x = acceptBtn.AbsolutePosition.X + acceptBtn.AbsoluteSize.X / 2
@@ -156,11 +171,11 @@ button.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- 5. ЛОГИКА ПОДСЧЕТА И ВЫВОДА
+-- 6. ЛОГИКА ПОДСЧЕТА И ВЫВОДА
 -- ==========================================
 local function getItemData(itemName)
-    if not isDataLoaded then return 0, "...", 0 end
-    local data = ITEM_DATA[itemName]
+    if not _G.TradeHelper.isDataLoaded then return 0, "...", 0 end
+    local data = _G.TradeHelper.ITEM_DATA[itemName]
     if data then
         return data.value or 0, data.stability or "Unknown", data.change or 0
     end
@@ -215,11 +230,12 @@ function updateInput()
             Mytext[i].Text = tostring(val * getAmount(item.Container.Amount))
             Stable[i].Text = stab
             
+            -- Вывод изменения цены (в валюте)
             if chg > 0 then
-                Change[i].Text = string.format("+%.1f%%", chg)
+                Change[i].Text = string.format("+%d", chg)
                 Change[i].TextColor3 = Color3.fromRGB(0, 255, 0)
             elseif chg < 0 then
-                Change[i].Text = string.format("%.1f%%", chg)
+                Change[i].Text = tostring(chg)
                 Change[i].TextColor3 = Color3.fromRGB(255, 50, 50)
             else
                 Change[i].Text = ""
@@ -246,11 +262,12 @@ function updateInput()
             Notmy[i].Text = tostring(nVal * getAmount(nItem.Container.Amount))
             NotStable[i].Text = nStab
             
+            -- Вывод изменения цены (в валюте)
             if nChg > 0 then
-                NotChange[i].Text = string.format("+%.1f%%", nChg)
+                NotChange[i].Text = string.format("+%d", nChg)
                 NotChange[i].TextColor3 = Color3.fromRGB(0, 255, 0)
             elseif nChg < 0 then
-                NotChange[i].Text = string.format("%.1f%%", nChg)
+                NotChange[i].Text = tostring(nChg)
                 NotChange[i].TextColor3 = Color3.fromRGB(255, 50, 50)
             else
                 NotChange[i].Text = ""
@@ -262,7 +279,7 @@ end
 pcall(function()
     while true do
         task.wait(0.5)
-        if isDataLoaded then
+        if _G.TradeHelper.isDataLoaded then
             updateInput()
             updateall()
         end
@@ -270,7 +287,7 @@ pcall(function()
 end)
 
 -- ==========================================
--- 6. АВТОПЕРЕЗАХОД
+-- 7. АВТОПЕРЕЗАХОД
 -- ==========================================
 GuiService.ErrorMessageChanged:Connect(function(msg)
     if msg and msg ~= "" then
